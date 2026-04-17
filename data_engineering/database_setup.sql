@@ -1,8 +1,8 @@
 -- database_setup.sql
 -- Run this in a Databricks Notebook or SQL Editor to create your Delta Lake foundation for the hackathon.
 
-CREATE SCHEMA IF NOT EXISTS vidyarthi_ai;
-USE vidyarthi_ai;
+USE CATALOG bharat_bricks_sol;
+USE SCHEMA default;
 
 -- 1. The Core RAG Dataset
 CREATE TABLE IF NOT EXISTS ncert_gold_chunks (

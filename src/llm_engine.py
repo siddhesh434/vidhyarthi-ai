@@ -64,3 +64,43 @@ CRITICAL INSTRUCTION 2: You MUST detect the language of the student's question a
             return final_text.strip()
         except Exception as e:
             return f"Error contacting Sarvam API: {str(e)} \n\nRaw Output: {response.text}"
+            
+    def generate_quiz(self, topics):
+        import json
+        print("🧠 Generating 5-question logic quiz from topics...")
+        
+        prompt = f"""You are an expert exam creator. The student has been asking about these topics: {topics}.
+Generate a 5-question multiple choice quiz testing their knowledge on these specific topics.
+
+CRITICAL INSTRUCTION: You MUST output ONLY valid JSON. No markdown, no backticks, no introduction. Just the JSON array.
+Format MUST strictly be a JSON list of objects exactly like this string format:
+[
+  {{"question": "What is...", "options": ["A. Full text", "B. Full text", "C. Full text", "D. Full text"], "answer": "B"}},
+  {{"question": "Why does...", "options": ["A. Explanation", "B. Explanation", "C. Explanation", "D. Explanation"], "answer": "A"}}
+]
+!!! Make sure the text inside 'options' contains the actual descriptive choices, NOT just the letter!
+"""
+        payload = {
+            "model": "sarvam-105b", 
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4095,
+            "temperature": 0.1
+        }
+        
+        try:
+            response = requests.post(self.url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            msg = response.json()['choices'][0]['message']
+            raw_text = msg.get('content') or msg.get('reasoning_content') or "[]"
+            
+            # Robust JSON extraction: LLMs often add text before/after the JSON
+            import re
+            match = re.search(r'\[.*\]', raw_text, re.DOTALL)
+            if match:
+                clean_json_str = match.group(0)
+                return json.loads(clean_json_str)
+            else:
+                return []
+        except Exception as e:
+            print(f"Quiz Generation Failed: {e}\nRaw Output: {raw_text if 'raw_text' in locals() else 'None'}")
+            return []
