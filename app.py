@@ -4,10 +4,10 @@
 
 import streamlit as st
 import uuid
+import os
+import sys
 from datetime import datetime
 
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # --- Databricks Spark Connection ---
@@ -122,6 +122,44 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     padding: 0.3rem 0;
     margin-top: 0.2rem;
 }
+
+/* ── Source Cards ───────────────────────────── */
+.source-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: linear-gradient(135deg, rgba(102,126,234,0.08), rgba(118,75,162,0.08));
+    border: 1px solid rgba(102,126,234,0.25);
+    border-radius: 10px;
+    padding: 0.55rem 0.9rem;
+    margin: 0.35rem 0;
+    font-size: 0.87rem;
+    color: #ccc;
+    transition: border-color 0.2s ease;
+}
+.source-card:hover { border-color: rgba(102,126,234,0.6); }
+.source-card .src-icon { font-size: 1.1rem; flex-shrink: 0; }
+.source-card .src-meta { flex: 1; }
+.source-card .src-meta strong { color: #c5b4fc; }
+
+/* ── PDF Viewer Panel ───────────────────────── */
+.pdf-viewer-panel {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(102,126,234,0.35);
+    border-radius: 14px;
+    padding: 1rem 1.2rem 1.4rem;
+    margin-top: 1rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.pdf-viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+    color: #c5b4fc;
+    font-weight: 600;
+    font-size: 1rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -137,6 +175,7 @@ _DEFAULTS = {
     "quiz_submitted": False,      # whether current quiz was submitted
     "session_created": False,     # whether the active session is saved to DB
     "needs_refresh": True,        # flag to reload session list
+    "pdf_viewer": None,           # dict with pdf_path, page_number, label — None = hidden
 }
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -262,6 +301,39 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── Helper: render source cards under assistant messages ─────────────────────
+def _render_sources(sources, msg_index):
+    """Shows a collapsible 'Sources' expander with a clickable Open PDF button per source."""
+    if not sources:
+        return
+    with st.expander(f"📚 Sources ({len(sources)} reference{'s' if len(sources) > 1 else ''})", expanded=False):
+        for _si, _src in enumerate(sources):
+            col_info, col_btn = st.columns([5, 1])
+            col_info.markdown(
+                f'<div class="source-card">'
+                f'<span class="src-icon">📄</span>'
+                f'<span class="src-meta"><strong>{_src["label"]}</strong></span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if col_btn.button(
+                "Open PDF",
+                key=f"src_open_{msg_index}_{_si}",
+                help=f"View {_src['pdf_filename']} at page {_src['page_number']}",
+            ):
+                # Toggle: close viewer if same source clicked again
+                current = st.session_state.pdf_viewer
+                if (
+                    current
+                    and current["pdf_path"] == _src["pdf_path"]
+                    and current["page_number"] == _src["page_number"]
+                ):
+                    st.session_state.pdf_viewer = None
+                else:
+                    st.session_state.pdf_viewer = _src
+                st.rerun()
+
+
 # ── Chat Messages ─────────────────────────────────────────────────────────────
 if not st.session_state.messages:
     st.markdown("""
@@ -272,9 +344,12 @@ if not st.session_state.messages:
     </div>
     """, unsafe_allow_html=True)
 else:
-    for _msg in st.session_state.messages:
+    for _mi, _msg in enumerate(st.session_state.messages):
         with st.chat_message(_msg["role"]):
             st.markdown(_msg["content"])
+            # Show clickable sources only for assistant messages that have them
+            if _msg["role"] == "assistant" and _msg.get("sources"):
+                _render_sources(_msg["sources"], _mi)
 
 # ── Chat Input ────────────────────────────────────────────────────────────────
 if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)"):
@@ -292,7 +367,7 @@ if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)")
         st.session_state.needs_refresh = True
 
     # Show user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.session_state.messages.append({"role": "user", "content": prompt, "sources": []})
     with st.chat_message("user"):
         st.markdown(prompt)
 
@@ -300,14 +375,89 @@ if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)")
     with st.chat_message("assistant"):
         with st.spinner("🔍 Searching the NCERT Database…"):
             agent = VidyarthiAgent(spark)
-            response = agent.ask_tutor(prompt)
+            response, sources = agent.ask_tutor(prompt)   # ← now returns (text, sources)
             log_chat_to_db(
                 spark, st.session_state.current_session_id, user_id, prompt, response
             )
         st.markdown(response)
+        # Show sources inline right after the answer
+        _render_sources(sources, len(st.session_state.messages))
 
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    st.session_state.messages.append({"role": "assistant", "content": response, "sources": sources})
     st.session_state.needs_refresh = True
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PDF VIEWER PANEL  (rendered when a source button is clicked)
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.pdf_viewer:
+    _pv = st.session_state.pdf_viewer
+    st.markdown(
+        f'<div class="pdf-viewer-panel">'
+        f'<div class="pdf-viewer-header">'
+        f'📖 {_pv["label"]}'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    _close_col, _ = st.columns([1, 6])
+    if _close_col.button("✕ Close Viewer", key="close_pdf_viewer"):
+        st.session_state.pdf_viewer = None
+        st.rerun()
+
+    with st.spinner(f"📂 Rendering page {_pv['page_number']} of {_pv['pdf_filename']}…"):
+        try:
+            import fitz  # PyMuPDF
+
+            # ── 1. Load PDF bytes — prefer local repo file (fast), fall back to Spark ──
+            import os as _os
+            if _os.path.exists(_pv["pdf_path"]):
+                with open(_pv["pdf_path"], "rb") as _f:
+                    _pdf_bytes = _f.read()
+            else:
+                # File not in local workspace — read via Spark (Unity Catalog Volume)
+                _pdf_row = (
+                    spark.read.format("binaryFile")
+                    .load(_pv["pdf_path"])
+                    .select("content")
+                    .collect()
+                )
+                if not _pdf_row:
+                    st.error(f"⚠️ `{_pv['pdf_filename']}` could not be loaded from the Volume.")
+                    st.stop()
+                _pdf_bytes = bytes(_pdf_row[0]["content"])
+
+            # ── 2. Render the exact cited page as a high-res PNG image ──────────────
+            _doc = fitz.open(stream=_pdf_bytes, filetype="pdf")
+            _page_idx = _pv["page_number"] - 1          # fitz is 0-indexed
+            _page_idx = max(0, min(_page_idx, len(_doc) - 1))  # clamp to valid range
+            _page = _doc.load_page(_page_idx)
+            _mat  = fitz.Matrix(2.0, 2.0)               # 2× zoom → crisp 144 DPI render
+            _pix  = _page.get_pixmap(matrix=_mat, alpha=False)
+            _img_bytes = _pix.tobytes("png")
+            _doc.close()
+
+            # ── 3. Display — st.image never hits browser security restrictions ───────
+            st.image(
+                _img_bytes,
+                caption=f"📄 {_pv['label']}",
+                use_column_width=True,
+            )
+            st.caption(
+                "💡 Tip: right-click the image → **Open image in new tab** to zoom in."
+            )
+
+        except ImportError:
+            st.error(
+                "⚠️ `PyMuPDF` is not installed. "
+                "Add `PyMuPDF` to your `requirements.txt` and redeploy the app."
+            )
+        except Exception as _e:
+            st.error(
+                f"⚠️ Could not render `{_pv['pdf_filename']}`.\n\n"
+                f"**Path tried:** `{_pv['pdf_path']}`\n\n"
+                f"**Error:** `{_e}`"
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -27,14 +27,15 @@ class VidyarthiAgent:
 
     def ask_tutor(self, question):
         print("🔍 Step 1: Searching NCERT Database...")
-        context = self.retriever.get_relevant_context(question, top_k=5)
-        
+        # get_relevant_context now returns (context_string, sources_list)
+        context, sources = self.retriever.get_relevant_context(question, top_k=5)
+
         if "No relevant context found" in context:
-            return "Mujhe khed hai, par yeh jankari Class 8 NCERT mein nahi mili."
+            return "Mujhe khed hai, par yeh jankari Class 8 NCERT mein nahi mili.", []
 
         # Keep the prompt extremely strict for hackathon judging
         prompt = f"""You are a helpful Indian university teaching assistant. Use the provided Context Blocks to answer the student's question comprehensively.
-            
+
 CRITICAL INSTRUCTION 1: You MUST synthesize the knowledge from ALL the provided Context Blocks. At the end of your answer, you MUST list the exact [Source: ...] tags for EVERY Context Block you used in a neat list. DO NOT make up information.
 CRITICAL INSTRUCTION 2: You MUST detect the language of the student's question and write your final response ENTIRELY in that exact same language (e.g. Hindi, English, etc).
 
@@ -44,26 +45,26 @@ CRITICAL INSTRUCTION 2: You MUST detect the language of the student's question a
 ### STUDENT QUESTION:
 {question}
 """
-        
+
         print(f"🤖 Step 2: Generating Answer with {self.model_id}...")
-        
+
         payload = {
             "model": self.model_id,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 4095, # Increased massively because it is a reasoning model!
+            "max_tokens": 4095,
             "temperature": 0.2
         }
-        
+
         try:
             response = requests.post(self.url, headers=self.headers, json=payload)
-            response.raise_for_status() # Raise exception if bad status code
+            response.raise_for_status()
             msg = response.json()['choices'][0]['message']
-            
+
             # Reasoning models (like o1 or sarvam-105b) often use 'reasoning_content' first
             final_text = msg.get('content') or msg.get('reasoning_content') or "Error: Empty response"
-            return final_text.strip()
+            return final_text.strip(), sources
         except Exception as e:
-            return f"Error contacting Sarvam API: {str(e)} \n\nRaw Output: {response.text}"
+            return f"Error contacting Sarvam API: {str(e)} \n\nRaw Output: {response.text}", []
             
     def generate_quiz(self, topics):
         import json
