@@ -39,3 +39,27 @@ CREATE TABLE IF NOT EXISTS business_dashboard (
     metric_value STRING,
     timestamp TIMESTAMP
 ) USING DELTA;
+
+-- 5. Chat Sessions (one row per conversation)
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    session_id STRING,
+    user_id STRING,
+    title STRING,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+) USING DELTA;
+
+-- 6. Quiz History (every quiz attempt, linked to a chat session)
+CREATE TABLE IF NOT EXISTS quiz_history (
+    quiz_id STRING,
+    session_id STRING,
+    user_id STRING,
+    questions STRING,
+    user_answers STRING,
+    correct_answers STRING,
+    score INT,
+    total INT,
+    strong_point STRING,
+    weak_point STRING,
+    created_at TIMESTAMP
+) USING DELTA;
