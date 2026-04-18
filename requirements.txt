@@ -3,4 +3,6 @@ sentence-transformers
 faiss-cpu
 requests
 streamlit
+streamlit-mic-recorder
 PyMuPDF
+sarvamai

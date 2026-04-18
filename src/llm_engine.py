@@ -176,3 +176,26 @@ Write directly to the student (use "you"). Be specific to the actual topics disc
         except Exception as e:
             print(f"Synthesis Failed: {e}")
             return "Failed to generate comprehensive report. Please try again."
+
+    def transcribe_audio(self, audio_file_path: str) -> str:
+        from sarvamai import SarvamAI
+        import os
+        
+        print(f"🎙️ Transcribing {audio_file_path} with Sarvam AI...")
+        try:
+            client = SarvamAI(api_subscription_key=self.SARVAM_API_KEY)
+            with open(audio_file_path, "rb") as audio_file:
+                response = client.speech_to_text.transcribe(
+                    file=audio_file,
+                    model="saaras:v3"
+                )
+                
+            if hasattr(response, 'transcript'):
+                return response.transcript
+            elif isinstance(response, dict) and 'transcript' in response:
+                return response['transcript']
+            else:
+                return str(response)
+        except Exception as e:
+            print(f"Transcription Failed: {e}")
+            return ""

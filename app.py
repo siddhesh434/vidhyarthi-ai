@@ -243,6 +243,38 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # ── Voice Input ───────────────────────────────────────────────────────
+    st.markdown("### 🎙️ Voice Input")
+    st.caption("Record your question below — Sarvam AI will transcribe it instantly.")
+    try:
+        from streamlit_mic_recorder import mic_recorder
+        _mic_result = mic_recorder(
+            start_prompt="🎙️ Record question",
+            stop_prompt="⏹️ Stop",
+            use_container_width=True,
+            key="mic_recorder",
+        )
+        if _mic_result and _mic_result.get("bytes") and _mic_result != st.session_state.get("last_audio"):
+            st.session_state.last_audio = _mic_result
+            with st.spinner("Transcribing…"):
+                _agent = VidyarthiAgent(spark)
+                import tempfile, os
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as _tmp:
+                    _tmp.write(_mic_result["bytes"])
+                    _tmp_path = _tmp.name
+                _transcribed = _agent.transcribe_audio(_tmp_path)
+                os.remove(_tmp_path)
+            if _transcribed:
+                st.session_state.voice_prompt = _transcribed
+                st.caption(f"✅ Transcribed: *{_transcribed[:60]}…*" if len(_transcribed) > 60 else f"✅ *{_transcribed}*")
+                st.rerun()
+            else:
+                st.error("Could not transcribe. Please try again.")
+    except ImportError:
+        st.caption("Install `streamlit-mic-recorder` for voice input.")
+
+    st.markdown("---")
+
     # ── Chat History ──────────────────────────────────────────────────────
     st.markdown('<p class="sidebar-heading">📋 Chat History</p>', unsafe_allow_html=True)
 
@@ -266,10 +298,6 @@ with st.sidebar:
             ):
                 _load_chat(_sess["session_id"])
                 st.rerun()
-
-    st.markdown("---")
-    st.markdown("### 🎙️ Speech Support")
-    st.caption("Use **Win+H** or **Mac Dictate** in the chat box for native Speech-to-Text!")
 
 
 # Ensure there's always an active session
@@ -352,7 +380,12 @@ else:
                 _render_sources(_msg["sources"], _mi)
 
 # ── Chat Input ────────────────────────────────────────────────────────────────
-if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)"):
+# Check for a voice prompt queued from the sidebar mic recorder
+_voice_queued = st.session_state.pop("voice_prompt", None)
+text_prompt = st.chat_input("Ask your question… (Auto-detects language)")
+prompt = text_prompt or _voice_queued
+
+if prompt:
 
     # — First message in a brand-new session → create it in DB
     if not st.session_state.session_created:
@@ -385,6 +418,7 @@ if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)")
 
     st.session_state.messages.append({"role": "assistant", "content": response, "sources": sources})
     st.session_state.needs_refresh = True
+    st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
