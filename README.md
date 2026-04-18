@@ -7,68 +7,36 @@
 ## Architecture
 
 ```mermaid
-flowchart TD
-    subgraph Student["Student Interface (Databricks Apps — Streamlit)"]
-        UI["app.py\nChat UI + PDF Viewer + Quiz + Report Card"]
-        MIC["Voice Input\nstreamlit-mic-recorder"]
-    end
+flowchart LR
+    MIC["🎙️ Voice Input\nMic Recorder"] -->|WAV| STT["Sarvam AI\nSTT saaras:v3"]
+    STT -->|transcript| UI
 
-    subgraph Sarvam["Sarvam AI (External API)"]
-        STT["Speech-to-Text\nsaaras:v3"]
-        LLM["sarvam-105b\nChat · Quiz · Evaluation · Synthesis"]
-    end
+    UI["🖥️ app.py\nStreamlit Chat UI\nDatabricks Apps"] -->|question| FAISS["FAISS Index\nmultilingual MiniLM\nin-memory"]
+    FAISS -->|chunk IDs| SPARK["Serverless Spark\nDatabricksSession"]
+    SPARK -->|text + page| DL1[("ncert_gold_chunks\nDelta Table")]
+    DL1 -->|context blocks| LLM["Sarvam-105B\nChat · Quiz\nEval · Synthesis"]
+    LLM -->|answer + citations| UI
 
-    subgraph Retrieval["Retrieval Layer (In-Memory)"]
-        FAISS["FAISS Index\nncert_faiss.bin\n(multilingual MiniLM-L12-v2)"]
-        MAP["Chunk ID Mapping\nncert_chunk_mapping.json"]
-    end
+    UI -->|log chat| SPARK
+    SPARK --> DL2[("chat_sessions")]
+    SPARK --> DL3[("raw_chat_history")]
+    SPARK --> DL6[("business_dashboard")]
 
-    subgraph Databricks["Databricks (Unity Catalog: bharat_bricks_sol.default)"]
-        direction TB
-        VOL["Volumes\n/raw_data/hecu1dd/\nNCERT PDFs"]
-        DL1["Delta Table\nncert_gold_chunks\nRAG text + page metadata"]
-        DL2["Delta Table\nchat_sessions\nConversation index"]
-        DL3["Delta Table\nraw_chat_history\nFull audit log"]
-        DL4["Delta Table\nquiz_history\nAttempts + AI evaluation"]
-        DL5["Delta Table\nuser_memory\nReport card per student"]
-        DL6["Delta Table\nbusiness_dashboard\nQuery metrics"]
-        SPARK["Serverless Spark\nDatabricksSession"]
-    end
+    UI -->|quiz topics| LLM
+    LLM -->|5 MCQs| UI
+    UI -->|quiz answers| LLM
+    LLM -->|evaluation| SPARK
+    SPARK --> DL4[("quiz_history")]
+    SPARK --> DL5[("user_memory\nReport Card")]
 
-    subgraph Dashboard["Judge Dashboard (Databricks Apps — Streamlit)"]
-        BD["business_dashboard.py\nLive metrics from Delta Lake"]
-    end
+    UI -->|Open PDF| SPARK
+    SPARK -->|binaryFile| VOL[("Databricks Volume\nNCERT PDFs")]
 
-    subgraph DataEng["Data Engineering (Databricks Notebooks)"]
-        NB1["1_ingest_ncert.py\nPDF → chunks → ncert_gold_chunks"]
-        NB2["2_build_vector_db.py\nDelta → FAISS index → Volume"]
-    end
+    BD["📊 business_dashboard.py\nStreamlit — Databricks Apps"] -->|spark.sql| SPARK
 
-    MIC -->|"WAV bytes"| STT
-    STT -->|"transcript"| UI
-    UI -->|"question"| FAISS
-    FAISS -->|"chunk IDs"| SPARK
-    SPARK -->|"SELECT text, page"| DL1
-    DL1 -->|"context blocks"| LLM
-    LLM -->|"answer + citations"| UI
-    UI -->|"log turn"| SPARK
-    SPARK --> DL3
-    SPARK --> DL2
-    SPARK --> DL6
-    UI -->|"generate quiz"| LLM
-    LLM -->|"5 MCQs"| UI
-    UI -->|"submit answers"| LLM
-    LLM -->|"evaluation paragraph"| SPARK
-    SPARK --> DL4
-    SPARK --> DL5
-    UI -->|"Open PDF button"| SPARK
-    SPARK -->|"binaryFile read"| VOL
-    BD -->|"spark.sql()"| SPARK
-    SPARK --> DL5
-    SPARK --> DL6
-    NB1 -->|"df.write.delta"| DL1
-    NB2 -->|"FAISS .write"| VOL
-    NB2 -->|"SELECT chunks"| DL1
+    NB1["Notebook 1\n1_ingest_ncert.py"] -->|write.delta| DL1
+    NB2["Notebook 2\n2_build_vector_db.py"] -->|SELECT| DL1
+    NB2 -->|FAISS write| VOL
 ```
 
 ### Component Summary
