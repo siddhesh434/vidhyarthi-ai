@@ -347,7 +347,7 @@ with st.expander("📝 Adaptive Quiz — test yourself on this chat's topics", e
 
             for _i, _q in enumerate(st.session_state.current_quiz):
                 st.markdown(f"**Q{_i + 1}: {_q['question']}**")
-                _choice = st.radio("Select answer:", _q["options"], key=f"qr_{_i}")
+                _choice = st.radio("Select answer:", _q["options"],index=None, key=f"qr_{_i}")
                 _user_answers.append(_choice)
                 _correct_answers.append(_q["answer"])
                 _questions_text.append(_q["question"])
@@ -406,19 +406,15 @@ with st.expander("📊 My Report Card"):
     if st.button("🔄 Refresh Report Card", key="refresh_rc"):
         try:
             df = spark.sql(f"""
-                SELECT strong_points, weak_points
-                FROM bharat_bricks_sol.default.user_memory
+                SELECT strong_point as analysis 
+                FROM bharat_bricks_sol.default.quiz_history
                 WHERE user_id = '{user_id}'
+                ORDER BY created_at DESC
+                LIMIT 1
             """).toPandas()
 
             if not df.empty:
-                _c1, _c2 = st.columns(2)
-                with _c1:
-                    st.success("### 💪 Strong Points")
-                    st.write(df["strong_points"].iloc[-1])
-                with _c2:
-                    st.error("### ⚠️ Needs Improvement")
-                    st.write(df["weak_points"].iloc[-1])
+                st.info(f"📋 **Detailed Analysis:**\n\n{df['analysis'].iloc[0]}")
             else:
                 st.info("Take the Quiz to generate your verified psychological profile!")
         except Exception:

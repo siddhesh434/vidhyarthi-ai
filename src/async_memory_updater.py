@@ -231,6 +231,10 @@ Be specific to the actual quiz topics. Do NOT write "General Comprehension". Wri
     proficiency = "High" if score >= 4 else "Medium" if score >= 2 else "Low"
     safe_analysis = analysis.replace("'", "''")
 
+    # Purge old memory for this user so we only ever have ONE row per student
+    spark.sql(f"DELETE FROM bharat_bricks_sol.default.user_memory WHERE user_id = '{user_id}'")
+
+    # Insert verified verified psychology into Databricks Delta Lake Report Card
     spark.sql(f"""
         INSERT INTO bharat_bricks_sol.default.user_memory
         VALUES ('{user_id}', {class_level}, '{proficiency}', '{safe_analysis}', '{safe_analysis}')

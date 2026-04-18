@@ -95,10 +95,42 @@ Format MUST strictly be a JSON list of objects exactly like this string format:
             
             # Robust JSON extraction: LLMs often add text before/after the JSON
             import re
+            import random
             match = re.search(r'\[.*\]', raw_text, re.DOTALL)
             if match:
                 clean_json_str = match.group(0)
-                return json.loads(clean_json_str)
+                quiz_data = json.loads(clean_json_str)
+                
+                # POST-PROCESSING: Shuffle options to prevent "A is always correct"
+                for q in quiz_data:
+                    opt_list = q.get('options', [])
+                    ans_letter = q.get('answer', '').strip()
+                    
+                    if len(opt_list) >= 2 and ans_letter:
+                        # Find the full text of the correct option
+                        correct_full = next((o for o in opt_list if o.startswith(ans_letter)), None)
+                        
+                        if correct_full:
+                            # Strip the "A. " / "B) " prefix from all options
+                            raw_opts = [re.sub(r'^[A-Z][\.\)]\s*', '', o) for o in opt_list]
+                            correct_raw = re.sub(r'^[A-Z][\.\)]\s*', '', correct_full)
+                            
+                            # Shuffle the underlying answers
+                            random.shuffle(raw_opts)
+                            
+                            # Re-apply A, B, C, D in their new random positions
+                            letters = ['A', 'B', 'C', 'D', 'E', 'F']
+                            new_opts = []
+                            for idx, raw in enumerate(raw_opts):
+                                letter = letters[idx % len(letters)]
+                                new_opts.append(f"{letter}. {raw}")
+                                # If this was our correct answer, update the master key
+                                if raw == correct_raw:
+                                    q['answer'] = letter
+                                    
+                            q['options'] = new_opts
+                            
+                return quiz_data
             else:
                 return []
         except Exception as e:
