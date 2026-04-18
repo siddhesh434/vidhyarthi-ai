@@ -194,7 +194,6 @@ with st.sidebar:
     st.markdown("### ⚙️ Student Setup")
     user_id = st.text_input("Student ID", value="Student_IND_001", key="sid_input")
     class_level = st.selectbox("Class", [8, 9, 10], index=0, key="class_input")
-    language = st.selectbox("Language", ["Hindi", "English", "Urdu"], key="lang_input")
 
     st.markdown("---")
 
@@ -278,7 +277,7 @@ else:
             st.markdown(_msg["content"])
 
 # ── Chat Input ────────────────────────────────────────────────────────────────
-if prompt := st.chat_input(f"Ask about your syllabus… ({language} supported)"):
+if prompt := st.chat_input("Ask about your syllabus… (Auto-detects language)"):
 
     # — First message in a brand-new session → create it in DB
     if not st.session_state.session_created:

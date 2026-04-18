@@ -67,8 +67,11 @@ class VidyarthiRetriever:
         # 5. Format it beautifully so the LLM enforces citations
         formatted_contexts = []
         for r in results:
+            chap_str = str(r['chapter'])
+            chap_num = chap_str[-2:] if len(chap_str) >= 2 else chap_str
+            
             context = (
-                f"[Source: Class {r['class_level']} Science, {r['chapter']}, Page {r['page_number']}]\n"
+                f"[Source: Class {r['class_level']} Science, Chapter {chap_num}, Page {r['page_number']}]\n"
                 f"TEXT: {r['text_content']}"
             )
             formatted_contexts.append(context)
