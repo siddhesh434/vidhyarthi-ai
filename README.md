@@ -1,6 +1,6 @@
 # Vidyarthi-AI — NCERT Tutor on Databricks
 
-**Vidyarthi-AI** is a multilingual RAG-powered tutoring app for Indian students (Class 8–10 NCERT Science) that answers questions in Hindi, English, or Urdu, generates adaptive quizzes, and maintains a persistent AI report card — all running natively on Databricks Apps with Delta Lake as the single source of truth.
+**Vidyarthi-AI** is a multilingual RAG-powered tutoring app for Indian students (Class 8–10 NCERT Science) that answers questions in all 22 official Indian languages + English, generates adaptive quizzes, and maintains a persistent AI report card — all running natively on Databricks Apps with Delta Lake as the single source of truth.
 
 ---
 
@@ -48,8 +48,8 @@ flowchart LR
 | **Data Store** | Delta Lake (6 tables) | Chat history, sessions, quiz results, report cards, metrics |
 | **File Storage** | Databricks Volumes | NCERT PDFs, FAISS index, chunk mapping JSON |
 | **Vector Search** | FAISS + MiniLM-L12-v2 | Multilingual semantic search over NCERT chunks |
-| **LLM** | Sarvam-105B | Answering, quiz generation, evaluation, synthesis |
-| **STT** | Sarvam AI saaras:v3 | Voice question transcription |
+| **LLM** | Sarvam-105B | Answering, quiz generation, evaluation, synthesis — all 22 official Indian languages + English |
+| **STT** | Sarvam AI saaras:v3 | Voice question transcription — all 22 official Indian languages + English |
 | **Governance** | Unity Catalog | All tables under `bharat_bricks_sol.default.*` |
 
 ---
@@ -145,9 +145,9 @@ Watch: the app searches NCERT Delta Lake, calls Sarvam-105B, and returns a cited
 Watch: the exact cited page renders inline as a high-res image pulled from Databricks Volumes.
 
 **Step 3 — Try voice input**
-> Click **Record question** in the sidebar, ask "Bharat mein kaun se microorganisms hain?", click Stop.
+> Click **Record question** in the sidebar, ask in any Indian language — e.g. Tamil: "நுண்ணுயிரிகள் என்றால் என்ன?", Hindi: "Bharat mein kaun se microorganisms hain?", click Stop.
 
-Watch: Sarvam AI transcribes the Hindi question and auto-submits it. The answer comes back in Hindi.
+Watch: Sarvam AI transcribes the question (supports all 22 official Indian languages) and auto-submits it. The answer comes back in the same language.
 
 **Step 4 — Generate an adaptive quiz**
 > Scroll down to **Adaptive Quiz**, click **Generate Quiz Now**.
