@@ -403,19 +403,41 @@ with st.expander("📝 Adaptive Quiz — test yourself on this chat's topics", e
 with st.expander("📊 My Report Card"):
     st.markdown(f"**Performance Analytics for `{user_id}`** — reads directly from Databricks Delta Lake.")
 
-    if st.button("🔄 Refresh Report Card", key="refresh_rc"):
-        try:
-            df = spark.sql(f"""
-                SELECT strong_point as analysis 
-                FROM bharat_bricks_sol.default.quiz_history
-                WHERE user_id = '{user_id}'
-                ORDER BY created_at DESC
-                LIMIT 1
-            """).toPandas()
+    if st.button("🌟 Generate Comprehensive Session Report", key="refresh_rc"):
+        if not st.session_state.get("current_session_id"):
+            st.warning("Please start a chat session and take some quizzes first!")
+        else:
+            with st.spinner("Synthesizing all your quizzes from this session into a master report..."):
+                try:
+                    # 1. Fetch all paragraphs for the CURRENT session
+                    session_id = st.session_state.current_session_id
+                    df = spark.sql(f"""
+                        SELECT strong_point as analysis 
+                        FROM bharat_bricks_sol.default.quiz_history
+                        WHERE session_id = '{session_id}'
+                        ORDER BY created_at ASC
+                    """).toPandas()
 
-            if not df.empty:
-                st.info(f"📋 **Detailed Analysis:**\n\n{df['analysis'].iloc[0]}")
-            else:
-                st.info("Take the Quiz to generate your verified psychological profile!")
-        except Exception:
-            st.warning("Report card data not yet available. Take a quiz first!")
+                    if df.empty:
+                        st.info("No quizzes taken in this session yet. Take a quiz to generate your profile!")
+                    else:
+                        paragraphs = df['analysis'].tolist()
+                        
+                        # 2. Synthesize using Sarvam 105b
+                        agent = VidyarthiAgent(spark)
+                        synthetic_report = agent.synthesize_evaluations(paragraphs)
+                        
+                        # 3. Save the synthesized super-profile to the global memory (purging old rows)
+                        safe_report = synthetic_report.replace("'", "''")
+                        spark.sql(f"DELETE FROM bharat_bricks_sol.default.user_memory WHERE user_id = '{user_id}'")
+                        spark.sql(f"""
+                            INSERT INTO bharat_bricks_sol.default.user_memory
+                            VALUES ('{user_id}', {class_level}, 'Evaluated', '{safe_report}', '{safe_report}')
+                        """)
+                        
+                        # 4. Display
+                        st.success("✅ **Session Synthesis Complete!**")
+                        st.info(f"📋 **Your Comprehensive Master Report:**\n\n{synthetic_report}")
+                        
+                except Exception as e:
+                    st.error(f"Failed to generate report: {e}")

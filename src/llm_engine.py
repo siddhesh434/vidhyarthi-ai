@@ -136,3 +136,42 @@ Format MUST strictly be a JSON list of objects exactly like this string format:
         except Exception as e:
             print(f"Quiz Generation Failed: {e}\nRaw Output: {raw_text if 'raw_text' in locals() else 'None'}")
             return []
+
+    def synthesize_evaluations(self, paragraphs):
+        print("🧠 Synthesizing multiple quiz evaluations into a master report card...")
+        
+        if not paragraphs:
+            return "No quizzes taken in this session yet."
+            
+        paragraphs_text = "\n\n".join([f"Quiz {i+1} Output:\n{p}" for i, p in enumerate(paragraphs)])
+        
+        prompt = f"""You are an expert Educational Psychologist. Below are several individual quiz evaluations for a student from their current study session.
+
+{paragraphs_text}
+
+Synthesize all of these evaluations into ONE highly professional, 4-5 sentence Comprehensive Session Report Card paragraph.
+1. Highlight their overarching strengths across these quizzes.
+2. Identify any recurring vulnerabilities, confusions, or blind spots.
+3. Provide a master recommendation for their next strategic learning steps.
+
+Write directly to the student (use "you"). Be specific to the actual topics discussed. Do not output anything except the final synthesized paragraph."""
+
+        payload = {
+            "model": self.model_id, 
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4095,
+            "temperature": 0.3
+        }
+        
+        try:
+            response = requests.post(self.url, headers=self.headers, json=payload, timeout=90)
+            response.raise_for_status()
+            msg = response.json()['choices'][0]['message']
+            content = msg.get('content') or msg.get('reasoning_content') or ""
+            
+            import re
+            clean_text = re.sub(r'```.*?```', '', content, flags=re.DOTALL).strip()
+            return clean_text
+        except Exception as e:
+            print(f"Synthesis Failed: {e}")
+            return "Failed to generate comprehensive report. Please try again."
