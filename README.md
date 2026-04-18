@@ -215,3 +215,14 @@ bharat_bricks/
 └── raw_data/
     └── hecu1dd/                    # NCERT Class 8 Science PDFs (hecu101.pdf … hecu113.pdf)
 ```
+## 🏁 Hackathon Submission
+
+This project was built for Bharat Bricks Hacks 2026, held on April 17–18, 2026, organized by Databricks.
+
+👥 **Team (4 Members):**
+- M Sai Varshith
+- Siddesh Waje
+- Abhinav Gangil
+- Aviral Sharma
+
+
