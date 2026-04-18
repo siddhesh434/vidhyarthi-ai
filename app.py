@@ -167,6 +167,10 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 # ══════════════════════════════════════════════════════════════════════════════
 # SESSION STATE — single source of truth
 # ══════════════════════════════════════════════════════════════════════════════
+# ── Hardcoded student identity (single-user mode) ─────────────────────────────
+# Not yet personalised for multiple students — swap this out when auth is added.
+STUDENT_ID = "Student_IND_001"
+
 _DEFAULTS = {
     "current_session_id": None,   # active chat UUID
     "messages": [],               # in-memory messages for the active chat
@@ -230,8 +234,7 @@ def _fmt_time(ts_str):
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
     # ── Student Settings ──────────────────────────────────────────────────
-    st.markdown("### ⚙️ Student Setup")
-    user_id = st.text_input("Student ID", value="Student_IND_001", key="sid_input")
+    user_id = STUDENT_ID   # single-user mode — no login required
     class_level = st.selectbox("Class", [8, 9, 10], index=0, key="class_input")
 
     st.markdown("---")
